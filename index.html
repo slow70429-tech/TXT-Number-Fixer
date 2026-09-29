@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TXT 編號重排助手</title>
+<style>
+body{font-family:system-ui,"Microsoft JhengHei",sans-serif;background:#f4f6f8;margin:0;color:#1f2937}
+.wrap{max-width:760px;margin:auto;padding:24px}
+.card{background:white;border-radius:18px;padding:24px;box-shadow:0 6px 24px #0001}
+h1{margin:0 0 8px;font-size:28px} p{color:#64748b;line-height:1.6}
+.drop{border:2px dashed #94a3b8;border-radius:14px;padding:28px;text-align:center;margin:20px 0;background:#f8fafc}
+button,.pick{border:0;border-radius:12px;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer}
+.pick{display:inline-block;background:#1d4ed8;color:#fff}
+button{background:#0f766e;color:#fff;margin-right:8px}
+button:disabled{opacity:.4}
+textarea{width:100%;box-sizing:border-box;height:330px;border:1px solid #cbd5e1;border-radius:12px;padding:12px;font:14px Consolas,monospace;white-space:pre}
+.ok{color:#047857;font-weight:700}
+small{color:#64748b}
+</style>
+</head>
+<body><div class="wrap"><div class="card">
+<h1>TXT 編號重排助手</h1>
+<p>把噪音 TXT 丟進來，自動將資料列最左邊的「編號」依序改成 1、2、3…，其他時間與數值完全不動。</p>
+<div class="drop">
+<input id="file" type="file" accept=".txt,text/plain" hidden>
+<label class="pick" for="file">選擇 TXT 檔</label>
+<div id="name" style="margin-top:12px">尚未選擇檔案</div>
+</div>
+<div id="status"></div>
+<textarea id="preview" placeholder="處理後內容會顯示在這裡" readonly></textarea><br><br>
+<button id="download" disabled>下載修正版 TXT</button>
+<button id="copy" disabled>複製全部內容</button>
+<p><small>判斷方式：找到「編號」標題後，只重排其後每個非空白資料列開頭的整數，因此不會誤改 2026/09/21 這類日期。</small></p>
+</div></div>
+<script>
+let output="", originalName="output.txt";
+const file=document.getElementById("file"), preview=document.getElementById("preview");
+file.onchange=async()=>{
+ const f=file.files[0]; if(!f)return;
+ originalName=f.name;
+ document.getElementById("name").textContent=f.name;
+ const buf=await f.arrayBuffer();
+ let text;
+ try{text=new TextDecoder("utf-8",{fatal:true}).decode(buf)}
+ catch(e){text=new TextDecoder("big5").decode(buf)}
+ const lines=text.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n");
+ let header=-1;
+ for(let i=0;i<lines.length;i++) if(/編號/.test(lines[i])){header=i;break;}
+ if(header<0){document.getElementById("status").innerHTML='<p style="color:#b91c1c">找不到「編號」標題，未修改。</p>';return;}
+ let n=0;
+ for(let i=header+1;i<lines.length;i++){
+   if(!lines[i].trim()) continue;
+   if(/^\s*\d+\s+/.test(lines[i])){
+     n++;
+     lines[i]=lines[i].replace(/^(\s*)\d+(\s+)/,(_,a,b)=>a+n+b);
+   }
+ }
+ output=lines.join("\r\n");
+ preview.value=output;
+ document.getElementById("status").innerHTML='<p class="ok">✓ 已重新編號 '+n+' 筆資料（1～'+n+'）</p>';
+ document.getElementById("download").disabled=false;
+ document.getElementById("copy").disabled=false;
+};
+document.getElementById("download").onclick=()=>{
+ const blob=new Blob([output],{type:"text/plain;charset=utf-8"});
+ const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+ a.download=originalName.replace(/\.txt$/i,"")+"_重新編號.txt"; a.click(); URL.revokeObjectURL(a.href);
+};
+document.getElementById("copy").onclick=async()=>{
+ await navigator.clipboard.writeText(output);
+ document.getElementById("status").innerHTML='<p class="ok">✓ 已複製到剪貼簿</p>';
+};
+</script></body></html>
